@@ -1,0 +1,99 @@
+name: Tourism MLOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  register-dataset:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate dataset
+        run: |
+          test -f tourism_project/data/tourism.csv
+          echo "Dataset found successfully."
+
+  data-prep:
+    needs: register-dataset
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tourism_project/deployment/requirements.txt
+
+      - name: Prepare data
+        run: |
+          python tourism_project/model_building/data_preparation.py
+
+      - name: Upload prepared data
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared-data
+          path: |
+            artifacts/train.csv
+            artifacts/test.csv
+
+  model-training:
+    needs: data-prep
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tourism_project/deployment/requirements.txt
+
+      - name: Prepare data
+        run: |
+          python tourism_project/model_building/data_preparation.py
+
+      - name: Train model
+        run: |
+          python tourism_project/model_building/train_model.py
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifacts
+          path: |
+            tourism_project/deployment/model.joblib
+            tourism_project/deployment/metrics.json
+            tourism_project/deployment/experiment_record.json
+
+      - name: Commit updated model artifacts
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add tourism_project/deployment/model.joblib                   tourism_project/deployment/metrics.json                   tourism_project/deployment/experiment_record.json
+
+          git diff --cached --quiet || git commit -m "Update model artifacts [skip ci]"
+          git push
