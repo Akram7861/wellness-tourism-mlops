@@ -2,9 +2,11 @@ name: Tourism MLOps Pipeline
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -12,7 +14,6 @@ permissions:
 jobs:
   register-dataset:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,7 +26,6 @@ jobs:
   data-prep:
     needs: register-dataset
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r tourism_project/deployment/requirements.txt
+          python -m pip install -r tourism_project/deployment/requirements.txt
 
       - name: Prepare data
         run: |
@@ -55,7 +55,6 @@ jobs:
   model-training:
     needs: data-prep
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -68,7 +67,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r tourism_project/deployment/requirements.txt
+          python -m pip install -r tourism_project/deployment/requirements.txt
 
       - name: Prepare data
         run: |
@@ -86,14 +85,3 @@ jobs:
             tourism_project/deployment/model.joblib
             tourism_project/deployment/metrics.json
             tourism_project/deployment/experiment_record.json
-
-      - name: Commit updated model artifacts
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add tourism_project/deployment/model.joblib                   tourism_project/deployment/metrics.json                   tourism_project/deployment/experiment_record.json
-
-          git diff --cached --quiet || git commit -m "Update model artifacts [skip ci]"
-          git push
